@@ -1,3 +1,6 @@
+'''
+python test_gpu_mem.py
+'''
 import paddle
 
 # Check if GPU is available

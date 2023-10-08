@@ -1,5 +1,5 @@
 '''
-python paddle_gpu_test.py.py
+python paddle_gpu_test.py
 '''
 import paddle
 import paddle.nn as nn
