@@ -5,43 +5,54 @@ import paddle
 import paddle.nn as nn
 import paddle.optimizer as optim
 import paddle.vision.transforms as T
-from paddle.vision.datasets import MNIST
+from paddle.vision.datasets import RandomDataset
+from paddle.io import DataLoader
 
-# Define a CNN model
+# Check if GPU is available
+if paddle.is_compiled_with_cuda():
+    place = paddle.CUDAPlace(0)  # Use the first GPU (change the index if needed)
+else:
+    print("GPU support is not available.")
+    exit()
+
+# Define a simple neural network
 class Net(nn.Layer):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2D(1, 32, 3, 1)
-        self.fc1 = nn.Linear(32 * 26 * 26, 128)
-        self.fc2 = nn.Linear(128, 10)
+        self.fc = nn.Linear(1, 1)
 
     def forward(self, x):
-        x = paddle.relu(self.conv1(x))
-        x = paddle.flatten(x, 1)
-        x = paddle.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
+        return self.fc(x)
 
-# Create a dataset and data loader
-transform = T.Compose([T.Resize((28, 28)), T.ToTensor()])
-train_dataset = MNIST(mode='train', transform=transform)
-train_loader = paddle.io.DataLoader(train_dataset, batch_size=64, shuffle=True)
+# Create a synthetic dataset and data loader
+transform = T.Compose([T.Normalize(mean=[0.5], std=[0.5])])
+dataset = RandomDataset(num_samples=1000, num_classes=2, transform=transform)
+data_loader = DataLoader(dataset, batch_size=64, shuffle=True)
 
 # Initialize the model and optimizer
 model = Net()
-optimizer = optim.Adam(parameters=model.parameters(), learning_rate=0.001)
+optimizer = optim.Adam(parameters=model.parameters(), learning_rate=0.01)
 
-# Train the model
-for epoch in range(10):
-    for batch_id, data in enumerate(train_loader()):
+# Training loop
+epochs = 10
+for epoch in range(epochs):
+    for batch_id, data in enumerate(data_loader()):
         x_data = data[0]
         y_data = data[1]
-        logits = model(x_data)
-        loss = paddle.nn.functional.cross_entropy(logits, y_data)
-        avg_loss = paddle.mean(loss)
-
-        avg_loss.backward()
+        
+        # Move data to GPU
+        x_data = paddle.to_tensor(x_data, place)
+        y_data = paddle.to_tensor(y_data, place)
+        
+        # Forward pass
+        output = model(x_data)
+        loss = paddle.nn.functional.mean(paddle.nn.functional.square(output - y_data))
+        
+        # Backward pass
+        loss.backward()
         optimizer.step()
         optimizer.clear_grad()
+        
+    print(f"Epoch [{epoch + 1}/{epochs}], Loss: {loss.numpy()}")
 
-    print(f"Epoch [{epoch + 1}/10], Loss: {avg_loss.numpy()}")
+print("Training complete!")
